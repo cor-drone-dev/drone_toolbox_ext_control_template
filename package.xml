@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>drone_toolbox_ext_control_template</name>
+  <version>0.0.0</version>
+  <description>The drone_toolbox_ext_control_template package</description>
+
+  <maintainer email="d.benders@tudelft.nl">Dennis Benders</maintainer>
+
+  <license>Apache License 2.0</license>
+
+  <author>Dennis Benders</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <depend>dynamic_reconfigure</depend>
+  <depend>geometry_msgs</depend>
+  <depend>mavros_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>roscpp</depend>
+  <depend>std_srvs</depend>
+
+  <export>
+  </export>
+</package>
