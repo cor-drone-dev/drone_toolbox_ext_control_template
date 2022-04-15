@@ -77,7 +77,7 @@ class Controller
 
     // ROS subscribers and publishers
     ros::Subscriber state_sub_;
-    ros::Publisher pos_pub_;
+    ros::Publisher pos_pub_, vel_pub_;
 
     // ROS service servers and clients
     ros::ServiceServer enable_control_server_, disable_control_server_;
@@ -85,7 +85,7 @@ class Controller
 
     // ROS messages
     // Send
-    mavros_msgs::PositionTarget pos_msg_;
+    mavros_msgs::PositionTarget pos_msg_, vel_msg_;
     // Receive
     geometry_msgs::Pose cur_pose_;
     nav_msgs::Odometry cur_odom_;
@@ -111,6 +111,12 @@ class Controller
     // 3D lab/experiment settings
     vector<double> cur_pos_{vector<double>(3,0)};
     vector<double> goal_pos_{vector<double>(3,0)};
+
+    // Control method
+    enum ControlMethod {
+      POS_CTRL,
+      VEL_CTRL
+    } control_method_;
 };
 
 #endif //CONTROLLER
