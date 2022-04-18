@@ -22,7 +22,8 @@ bool Controller::initialize()
     // - https://github.com/mavlink/mavros/blob/master/mavros/src/plugins/setpoint_raw.cpp#L164
     // - https://github.com/PX4/PX4-Autopilot/blob/77a37c26bf7696d6ce8658a94339e3e28de340c4/src/modules/mavlink/mavlink_receiver.cpp#L1004
     pos_target_msg_.header.frame_id = "base_link";
-    pos_target_msg_.coordinate_frame = 1;
+    pos_target_msg_.coordinate_frame = 1; //binary: 0000 1101 1111 1111 => ignore everything
+    pos_target_msg_.type_mask = 3583;
     pos_target_msg_.position.x = NAN;
     pos_target_msg_.position.y = NAN;
     pos_target_msg_.position.z = NAN;
@@ -34,6 +35,18 @@ bool Controller::initialize()
     pos_target_msg_.acceleration_or_force.z = NAN;
     pos_target_msg_.yaw = NAN;
     pos_target_msg_.yaw_rate = NAN;
+
+    // Construct default attitude target message (used for attitude, body rate and thrust commands)
+    att_target_msg_.header.frame_id = "base_link";
+    att_target_msg_.type_mask = 255; //binary: 1111 1111 => ignore everything
+    att_target_msg_.orientation.x = NAN;
+    att_target_msg_.orientation.y = NAN;
+    att_target_msg_.orientation.z = NAN;
+    att_target_msg_.orientation.w = NAN;
+    att_target_msg_.body_rate.x = NAN;
+    att_target_msg_.body_rate.y = NAN;
+    att_target_msg_.body_rate.z = NAN;
+    att_target_msg_.thrust = NAN;
 
     // Define control loop timer at specified frequency: should be higher than 2Hz
     loop_timer_ = nh_.createTimer(ros::Duration(1/loop_frequency_), &Controller::loop, this);
@@ -66,6 +79,7 @@ bool Controller::initRosInterface()
     pos_yaw_pub_ = nh_.advertise<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 1);
     pos_yawrate_pub_ = nh_.advertise<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 1);
     vel_pub_ = nh_.advertise<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 1);
+    att_pub_ = nh_.advertise<mavros_msgs::AttitudeTarget>("/mavros/setpoint_raw/attitude", 1);
 
     // ROS service servers and clients
     enable_control_server_ = nh_.advertiseService("/px4_ext_cont_enable", &Controller::enableControlCallback, this);
@@ -130,7 +144,7 @@ void Controller::controllerExecution()
     double sin_val = sin(2*M_PI*f*t);
     double cos_val = cos(2*M_PI*f*t);
 
-    // Calculate publish control commands
+    // Calculate and publish control commands
     switch (control_method_) {
         case POS_CTRL:
             pos_target_msg_.header.stamp = ros::Time::now();
@@ -174,6 +188,28 @@ void Controller::controllerExecution()
 
             vel_pub_.publish(pos_target_msg_);
             break;
+
+        case ATT_CTRL:
+            // Define orientation in ZYX Euler angles and convert to quaternion
+            tf2Scalar roll = M_PI/10*sin_val, pitch = M_PI/10*cos_val, yaw = 0;
+            tf2::Quaternion q;
+            q.setRPY(roll, pitch, yaw); //fixed angles RPY is equivalent to ZYX Euler angles
+
+            // Define thrust and convert to input desired by PX4: [0.1, 0.9] (assuming linear relation)
+            double desired_thrust = 9.81;
+            double thrust = (desired_thrust - 9.81) / 22.629 + 0.674;
+
+            // Fill and send message
+            att_target_msg_.header.stamp = ros::Time::now();
+            att_target_msg_.type_mask = 127; //binary: 0111 1111 => ignore everything except attitude setpoints
+            att_target_msg_.orientation.x = q.x();
+            att_target_msg_.orientation.y = q.y();
+            att_target_msg_.orientation.z = q.z();
+            att_target_msg_.orientation.w = q.w();
+            att_target_msg_.thrust = thrust;
+
+            att_pub_.publish(att_target_msg_);
+            break;
     }
 }
 /****************************************************************************************/
@@ -194,7 +230,7 @@ void Controller::reconfigureCallback(drone_toolbox_ext_control_template::Control
     if (level & 2) {
         switch (config.control_select) {
             case 0:
-                CONTROLLER_INFO("Switched to position control");
+                CONTROLLER_INFO("Switching to position control");
                 control_method_ = POS_CTRL;
                 break;
 
@@ -204,13 +240,18 @@ void Controller::reconfigureCallback(drone_toolbox_ext_control_template::Control
                 break;
 
             case 2:
-                CONTROLLER_INFO("Switched to combined position and yawrate control");
+                CONTROLLER_INFO("Switching to combined position and yawrate control");
                 control_method_ = POS_YAWRATE_CTRL;
                 break;
 
             case 3:
-                CONTROLLER_INFO("Switched to velocity control");
+                CONTROLLER_INFO("Switching to velocity control");
                 control_method_ = VEL_CTRL;
+                break;
+
+            case 4:
+                CONTROLLER_INFO("Switching to attitude control");
+                control_method_ = ATT_CTRL;
                 break;
 
             default:

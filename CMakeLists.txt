@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   roscpp
   std_srvs
+  tf2
 )
 
 generate_dynamic_reconfigure_options(
@@ -19,7 +20,7 @@ generate_dynamic_reconfigure_options(
 catkin_package(
  INCLUDE_DIRS include/${PROJECT_NAME}
  LIBRARIES drone_toolbox_ext_control_template
- CATKIN_DEPENDS dynamic_reconfigure geometry_msgs mavros_msgs nav_msgs roscpp std_srvs
+ CATKIN_DEPENDS dynamic_reconfigure geometry_msgs mavros_msgs nav_msgs roscpp std_srvs tf2
 )
 
 include_directories(include
