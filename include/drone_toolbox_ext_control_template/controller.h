@@ -1,6 +1,9 @@
 #ifndef CONTROLLER
 #define CONTROLLER
 
+// General include
+#include <math.h>
+
 // ROS includes
 #include <ros/ros.h>
 
@@ -77,7 +80,7 @@ class Controller
 
     // ROS subscribers and publishers
     ros::Subscriber state_sub_;
-    ros::Publisher pos_pub_, vel_pub_;
+    ros::Publisher pos_pub_, pos_yaw_pub_, pos_yawrate_pub_, vel_pub_;
 
     // ROS service servers and clients
     ros::ServiceServer enable_control_server_, disable_control_server_;
@@ -85,7 +88,7 @@ class Controller
 
     // ROS messages
     // Send
-    mavros_msgs::PositionTarget pos_msg_, vel_msg_;
+    mavros_msgs::PositionTarget pos_target_msg_;
     // Receive
     geometry_msgs::Pose cur_pose_;
     nav_msgs::Odometry cur_odom_;
@@ -107,6 +110,7 @@ class Controller
     const double loop_frequency_default_ = 20;
     ros::Timer loop_timer_;
     bool timer_running_;
+    ros::Time loop_start_time_;
 
     // 3D lab/experiment settings
     vector<double> cur_pos_{vector<double>(3,0)};
@@ -115,6 +119,8 @@ class Controller
     // Control method
     enum ControlMethod {
       POS_CTRL,
+      POS_YAW_CTRL,
+      POS_YAWRATE_CTRL,
       VEL_CTRL
     } control_method_;
 };
