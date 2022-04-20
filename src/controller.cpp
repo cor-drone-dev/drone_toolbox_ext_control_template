@@ -14,7 +14,7 @@ bool Controller::initialize()
     first_state_received_ = false;
     control_method_ = POS_CTRL;
 
-    // Construct default position target message (used for position, velocity and yaw/yawrate commands)
+    // Construct default position target message (used for position, velocity and yaw/yaw rate commands)
     // See:
     // - https://github.com/mavlink/mavros/blob/master/mavros_msgs/msg/PositionTarget.msg
     // - https://mavlink.io/en/messages/common.html#SET_POSITION_TARGET_LOCAL_NED
@@ -171,7 +171,7 @@ void Controller::controllerExecution()
 
         case POS_YAWRATE_CTRL:
             pos_target_msg_.header.stamp = ros::Time::now();
-            pos_target_msg_.type_mask = 1528; //binary: 0000 0101 1111 1000 => ignore everything except position and yawrate setpoints
+            pos_target_msg_.type_mask = 1528; //binary: 0000 0101 1111 1000 => ignore everything except position and yaw rate setpoints
             pos_target_msg_.position.x = 1;
             pos_target_msg_.position.y = 1;
             pos_target_msg_.position.z = 2;
@@ -217,7 +217,7 @@ void Controller::controllerExecution()
 
         case RPYRT_CTRL:
         {
-            // Define attitude (rad) and yawrate (rad/s) commands
+            // Define attitude (rad) and yaw rate (rad/s) commands
             double roll = M_PI/10*sin_val;
             double pitch = M_PI/10*cos_val;
             double yaw_rate = 1;
@@ -269,7 +269,7 @@ void Controller::reconfigureCallback(drone_toolbox_ext_control_template::Control
                 break;
 
             case 2:
-                CONTROLLER_INFO("Switching to combined position and yawrate control");
+                CONTROLLER_INFO("Switching to combined position and yaw rate control");
                 control_method_ = POS_YAWRATE_CTRL;
                 break;
 
@@ -284,7 +284,7 @@ void Controller::reconfigureCallback(drone_toolbox_ext_control_template::Control
                 break;
 
             case 5:
-                CONTROLLER_INFO("Switching to roll, pitch, yawrate and thrust control");
+                CONTROLLER_INFO("Switching to roll, pitch, yaw rate and thrust control");
                 control_method_ = RPYRT_CTRL;
                 break;
 
