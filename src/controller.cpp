@@ -36,7 +36,7 @@ bool Controller::initialize()
     pos_target_msg_.yaw = NAN;
     pos_target_msg_.yaw_rate = NAN;
 
-    // Construct default attitude target message (used for attitude, body rate and thrust commands)
+    // Construct default attitude target message (used for attitude and thrust commands)
     att_target_msg_.header.frame_id = "base_link";
     att_target_msg_.type_mask = 255; //binary: 1111 1111 => ignore everything
     att_target_msg_.orientation.x = NAN;
@@ -80,6 +80,7 @@ bool Controller::initRosInterface()
     pos_yawrate_pub_ = nh_.advertise<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 1);
     vel_pub_ = nh_.advertise<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 1);
     att_pub_ = nh_.advertise<mavros_msgs::AttitudeTarget>("/mavros/setpoint_raw/attitude", 1);
+    rpyrt_pub_ = nh_.advertise<mav_msgs::RollPitchYawrateThrust>("/mavros/setpoint_raw/roll_pitch_yawrate_thrust", 1);
 
     // ROS service servers and clients
     enable_control_server_ = nh_.advertiseService("/px4_ext_cont_enable", &Controller::enableControlCallback, this);
@@ -137,7 +138,7 @@ void Controller::controllerExecution()
 
     /* The code below is provided as an example to show the different ways of interfacing with MAVROS and PX4 */
 
-    // A standard sine and cosine wave for velocity, attitude and rate commands
+    // A standard sine and cosine wave for velocity and attitude commands
     ros::Time cur_time = ros::Time::now();
     double f = 0.25;
     double t = ros::Duration(cur_time - loop_start_time_).toSec();
@@ -182,26 +183,28 @@ void Controller::controllerExecution()
         case VEL_CTRL:
             pos_target_msg_.header.stamp = ros::Time::now();
             pos_target_msg_.type_mask = 3527; //binary: 0000 1101 1100 0111 => ignore everything except velocity setpoints
-            pos_target_msg_.velocity.x = 0.5*sin_val;
-            pos_target_msg_.velocity.y = 0.5*cos_val;
+            pos_target_msg_.velocity.x = 0.5*cos_val;
+            pos_target_msg_.velocity.y = 0.5*sin_val;
             pos_target_msg_.velocity.z = 0;
 
             vel_pub_.publish(pos_target_msg_);
             break;
 
         case ATT_CTRL:
-            // Define orientation in ZYX Euler angles and convert to quaternion
+        {
+            // Define orientation in ZYX Euler angles (rad) and convert to quaternion
             tf2Scalar roll = M_PI/10*sin_val, pitch = M_PI/10*cos_val, yaw = 0;
             tf2::Quaternion q;
             q.setRPY(roll, pitch, yaw); //fixed angles RPY is equivalent to ZYX Euler angles
 
             // Define thrust and convert to input desired by PX4: [0.1, 0.9] (assuming linear relation)
+            // Used for attitude commands
             double desired_thrust = 9.81;
             double thrust = (desired_thrust - 9.81) / 22.629 + 0.674;
 
             // Fill and send message
             att_target_msg_.header.stamp = ros::Time::now();
-            att_target_msg_.type_mask = 127; //binary: 0111 1111 => ignore everything except attitude setpoints
+            att_target_msg_.type_mask = 63; //binary: 0011 1111 => ignore everything except attitude and thrust setpoints
             att_target_msg_.orientation.x = q.x();
             att_target_msg_.orientation.y = q.y();
             att_target_msg_.orientation.z = q.z();
@@ -210,6 +213,32 @@ void Controller::controllerExecution()
 
             att_pub_.publish(att_target_msg_);
             break;
+        }
+
+        case RPYRT_CTRL:
+        {
+            // Define attitude (rad) and yawrate (rad/s) commands
+            double roll = M_PI/10*sin_val;
+            double pitch = M_PI/10*cos_val;
+            double yaw_rate = 1;
+
+            // Define thrust and convert to input desired by PX4: [0.1, 0.9] (assuming linear relation)
+            // Used for attitude commands
+            double desired_thrust = 9.81;
+            double thrust = (desired_thrust - 9.81) / 22.629 + 0.674;
+
+            // Fill and send message
+            rpyrt_msg_.header.stamp = ros::Time::now();
+            rpyrt_msg_.roll = roll;
+            rpyrt_msg_.pitch = pitch;
+            rpyrt_msg_.yaw_rate = yaw_rate;
+            rpyrt_msg_.thrust.x = NAN;
+            rpyrt_msg_.thrust.y = NAN;
+            rpyrt_msg_.thrust.z = thrust;
+
+            rpyrt_pub_.publish(rpyrt_msg_);
+            break;
+        }
     }
 }
 /****************************************************************************************/
@@ -252,6 +281,11 @@ void Controller::reconfigureCallback(drone_toolbox_ext_control_template::Control
             case 4:
                 CONTROLLER_INFO("Switching to attitude control");
                 control_method_ = ATT_CTRL;
+                break;
+
+            case 5:
+                CONTROLLER_INFO("Switching to roll, pitch, yawrate and thrust control");
+                control_method_ = RPYRT_CTRL;
                 break;
 
             default:

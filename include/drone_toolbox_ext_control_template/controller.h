@@ -13,6 +13,7 @@
 #include <geometry_msgs/Pose.h>
 #include <mavros_msgs/PositionTarget.h>
 #include <mavros_msgs/AttitudeTarget.h>
+#include <mav_msgs/RollPitchYawrateThrust.h>
 #include <nav_msgs/Odometry.h>
 #include <tf2/LinearMath/Quaternion.h>
 
@@ -82,7 +83,7 @@ class Controller
 
     // ROS subscribers and publishers
     ros::Subscriber state_sub_;
-    ros::Publisher pos_pub_, pos_yaw_pub_, pos_yawrate_pub_, vel_pub_, att_pub_;
+    ros::Publisher pos_pub_, pos_yaw_pub_, pos_yawrate_pub_, vel_pub_, att_pub_, rpyrt_pub_;
 
     // ROS service servers and clients
     ros::ServiceServer enable_control_server_, disable_control_server_;
@@ -92,6 +93,7 @@ class Controller
     // Send
     mavros_msgs::PositionTarget pos_target_msg_;
     mavros_msgs::AttitudeTarget att_target_msg_;
+    mav_msgs::RollPitchYawrateThrust rpyrt_msg_;
     // Receive
     geometry_msgs::Pose cur_pose_;
     nav_msgs::Odometry cur_odom_;
@@ -125,7 +127,8 @@ class Controller
       POS_YAW_CTRL,
       POS_YAWRATE_CTRL,
       VEL_CTRL,
-      ATT_CTRL
+      ATT_CTRL,
+      RPYRT_CTRL
     } control_method_;
 };
 
