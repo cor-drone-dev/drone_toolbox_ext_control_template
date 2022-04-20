@@ -146,7 +146,7 @@ pos_pub_.publish(pos_target_msg_);
 ```
 
 
-## Position and yaw control
+### Position and yaw control
 Create the publisher:
 ```
 pos_yaw_pub_ = nh_.advertise<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 1);
