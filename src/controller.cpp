@@ -10,7 +10,6 @@ bool Controller::initialize()
     }
 
     // Initialize controller settings
-    goal_pos_ = {1, 1, 2};
     mission_finished_ = false;
     first_state_received_ = false;
     control_method_ = POS_CTRL;
