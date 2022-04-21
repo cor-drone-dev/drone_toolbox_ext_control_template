@@ -80,7 +80,7 @@ void Controller::missionFinishedCheck()
     }
 }
 ```
-Determining whether the mission finished is finished or not is done in this template based on a goal position (loaded as a ROS parameter from *config/controller.yaml*). However, one can implement this using an arbitrary condition that does not necessarily depend on a goal position.
+*Note: determining whether the mission finished is finished or not is done in this template based on a goal position (loaded as a ROS parameter from *config/controller.yaml*). However, one can implement this using an arbitrary condition that does not necessarily depend on a goal position.*
 
 
 
@@ -237,6 +237,7 @@ and publish:
 ```
 att_pub_.publish(att_target_msg_);
 ```
+*Note: the thrust value provided to PX4 should be given as a value between 0 and 1 (see [this link](https://docs.px4.io/master/en/concept/mixing.html#multirotor-mixer) and [this code line](https://github.com/dbenders1/mavros/blob/5c38353bea11af5139d81dc71d5d27df77b4df4f/mavros/src/plugins/setpoint_raw.cpp#L259)), because the real thrust the drone experiences depends on the specific hardware present on the platform (ESCs and motors). Therefore, before controlling the drone with a thrust value, first make sure to derive the relation between real thrust and commanded thrust. This relation depends on the battery voltage. This constraint on the commanded thrust holds for all messages containing a thrust value, including the RPYrT control message.*
 
 
 ### RPYrT control
