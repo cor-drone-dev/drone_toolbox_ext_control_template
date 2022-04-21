@@ -19,12 +19,6 @@ bool Controller::initialize()
     print_timeout_ = ros::Duration(1.0);
 
     // Construct default position target message (used for position, velocity and yaw/yaw rate commands)
-    // See:
-    // - https://github.com/mavlink/mavros/blob/master/mavros_msgs/msg/PositionTarget.msg
-    // - https://mavlink.io/en/messages/common.html#SET_POSITION_TARGET_LOCAL_NED
-    // Processed via:
-    // - https://github.com/mavlink/mavros/blob/master/mavros/src/plugins/setpoint_raw.cpp#L164
-    // - https://github.com/PX4/PX4-Autopilot/blob/77a37c26bf7696d6ce8658a94339e3e28de340c4/src/modules/mavlink/mavlink_receiver.cpp#L1004
     pos_target_msg_.header.frame_id = "base_link";
     pos_target_msg_.coordinate_frame = 1; //binary: 0000 1101 1111 1111 => ignore everything
     pos_target_msg_.type_mask = 3583;
