@@ -21,7 +21,7 @@ generate_dynamic_reconfigure_options(
 catkin_package(
  INCLUDE_DIRS include/${PROJECT_NAME}
  LIBRARIES drone_toolbox_ext_control_template
- CATKIN_DEPENDS dynamic_reconfigure geometry_msgs mavros_msgs mav_msgs nav_msgs roscpp std_srvs tf2
+ # no CATKIN_DEPENDS, because this package does not contain header files that will be used by other packages
 )
 
 include_directories(include
