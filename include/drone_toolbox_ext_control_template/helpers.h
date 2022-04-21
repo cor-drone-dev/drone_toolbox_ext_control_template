@@ -1,10 +1,20 @@
 #ifndef CONTROLLER_HELPERS
 #define CONTROLLER_HELPERS
 
-// ROS includes
-#include <ros/ros.h>
+// General includes
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <vector>
 
-using namespace std;
+// ROS includes
+#include <ros/console.h>
+
+using std::minus;
+using std::vector;
+using std::pow;
+using std::sqrt;
+using std::transform;
 
 // Logging pragmas
 #define CONTROLLER_INFO(msg) \
