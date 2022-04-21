@@ -106,6 +106,7 @@ class Controller
     bool enable_debug_;
 
     // Mission-related
+    bool mission_finished_;
     bool first_state_received_;
     double dist_thres_;
     const double dist_thres_default_ = 0.1;
@@ -115,7 +116,8 @@ class Controller
     const double loop_frequency_default_ = 20;
     ros::Timer loop_timer_;
     bool timer_running_;
-    ros::Time loop_start_time_;
+    ros::Time loop_start_time_, last_time_;
+    ros::Duration print_timeout_;
 
     // 3D lab/experiment settings
     vector<double> cur_pos_{vector<double>(3,0)};

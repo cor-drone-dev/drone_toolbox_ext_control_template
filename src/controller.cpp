@@ -11,8 +11,12 @@ bool Controller::initialize()
 
     // Initialize controller settings
     goal_pos_ = {1, 1, 2};
+    mission_finished_ = false;
     first_state_received_ = false;
     control_method_ = POS_CTRL;
+
+    // Set timeout for error printing
+    print_timeout_ = ros::Duration(1.0);
 
     // Construct default position target message (used for position, velocity and yaw/yaw rate commands)
     // See:
@@ -118,12 +122,19 @@ void Controller::loop(const ros::TimerEvent &event)
 void Controller::missionFinishedCheck()
 {
     if (getEuclideanDistance3d(cur_pos_, goal_pos_) < dist_thres_ && timer_running_) {
+        mission_finished_ = true;
+    }
+
+    if (mission_finished_) {
         if (mission_finished_client_.call(mission_finished_srv_)) {
             CONTROLLER_INFO("Mission finished! Transferred back control to PX4 control interface and got the following message back: '" << mission_finished_srv_.response.message << "'");
             loop_timer_.stop();
             timer_running_ = false;
         } else {
-            CONTROLLER_WARN_ONCE("Mission finished, but failed to transfer back control to PX4 control interface! Will try again every control loop execution until success");
+            if (ros::Time::now() - last_time_ > print_timeout_) {
+                CONTROLLER_ERROR("Mission finished, but failed to transfer back control to PX4 control interface! Will try again every control loop execution until success");
+                last_time_ = ros::Time::now();
+            }
         }
     }
 }
@@ -264,7 +275,7 @@ void Controller::reconfigureCallback(drone_toolbox_ext_control_template::Control
                 break;
 
             case 1:
-                CONTROLLER_INFO("Combined position and yaw control currently not available! Switching to position control.");
+                CONTROLLER_INFO("Combined position and yaw control currently not available! Switching to position control");
                 control_method_ = POS_CTRL;
                 break;
 
@@ -289,7 +300,7 @@ void Controller::reconfigureCallback(drone_toolbox_ext_control_template::Control
                 break;
 
             default:
-                CONTROLLER_WARN("Invalid control method selected. Switching to position control.");
+                CONTROLLER_WARN("Invalid control method selected! Switching to position control");
                 control_method_ = POS_CTRL;
                 break;
         }
@@ -305,8 +316,10 @@ bool Controller::enableControlCallback(std_srvs::Trigger::Request &req, std_srvs
         return false;
     } else {
         CONTROLLER_INFO("enableControlCallback called: starting control loop");
+        mission_finished_ = false;
         loop_timer_.start();
         loop_start_time_ = ros::Time::now();
+        last_time_ = loop_start_time_;
         timer_running_ = true;
         res.success = true;
         res.message = "Enabled control loop";
