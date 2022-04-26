@@ -1,5 +1,5 @@
 # Drone toolbox external controller template
-This repository serves as a controller template for interfacing with the PX4 control interface defined in the [drone_toolbox repository](https://github.com/dbenders1/drone_toolbox).
+This repository serves as a controller template for interfacing with the PX4 control interface defined in the [drone_toolbox](https://github.com/dbenders1/drone_toolbox) repository. Follow the [corresponding installation instructions](https://github.com/dbenders1/drone_toolbox/blob/master/doc/Installation_instructions.md#clone-template-controller) in [drone_toolbox](https://github.com/dbenders1/drone_toolbox) to get started using this repository.
 
 To interface a controller with the PX4 control interface, it should have the following ROS components:
 1. [Service server to start the control loop](#start-control-loop-server)
