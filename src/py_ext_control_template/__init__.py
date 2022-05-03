@@ -1,0 +1,1 @@
+from py_ext_control_template.controller import Controller
