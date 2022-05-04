@@ -12,7 +12,7 @@ if __name__ == '__main__':
 
         controllerObj = Controller()
 
-        server = Server(ControllerConfig, controllerObj.reconfigureCallback)
+        server = Server(ControllerConfig, controllerObj.reconfigure_callback)
 
         if not controllerObj.initialize():
             # error message

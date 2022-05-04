@@ -1,12 +1,32 @@
 ## Controller interface for drone toolbox in python
 ## by Max Lodel, TU Delft, 2022
 
+import enum
+import numpy as np
+
 import rospy
 from drone_toolbox_ext_control_template.cfg import ControllerConfig
 
+from mavros_msgs.msg import PositionTarget, AttitudeTarget
+from mav_msgs.msg import RollPitchYawrateThrust
+from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Pose
+
+from std_srvs.srv import Trigger
+
+
+
+class ControlMethod(enum.Enum):
+    POS_CTRL = 0
+    POS_YAW_CTRL = 1
+    POS_YAWRATE_CTRL = 2
+    VEL_CTRL = 3
+    ATT_CTRL = 4
+    RPYRT_CTRL = 5
 
 class Controller:
     def __init__(self) -> None:
+        
         # Required parameters
         self.enable_debug = None
         self.goal_pos = None
@@ -34,15 +54,89 @@ class Controller:
         self.disable_control_srv = None
         self.mission_finished_clt = None
 
-    def initialize(self) -> bool:
-        pass
+        # ROS message/service variables
+        self.pos_target_msg = PositionTarget()
+        self.att_target_msg = AttitudeTarget()
+        self.rpyrt_msg = RollPitchYawrateThrust()
+        self.cur_pose_msg = Pose()
+        self.cur_odom_msg = Odometry()
+        self.mission_finished_srv = Trigger()
 
-    def initRosInterface(self) -> bool:
+        # Convenience placeholder for converted messages
+        self.cur_pos = np.zeros((3,1))
+
+        # Controller variables
+        self.mission_finished = None
+        self.first_state_received = None
+        self.control_method = None
+
+        # Timer variables
+        self.print_timeout = None
+        self.timer_running = None
+        self.loop_timer = None
+        self.loop_start_time = None
+        self.last_time = None
+
+        self.first_reconfig_cb = None
+
+
+    def initialize(self) -> bool:
+        
+        # Initialize ROS interface
+        if not self._init_ros_interface():
+            # error message
+            return False
+        
+        # Initialize controller variables
+        self.mission_finished = False
+        self.first_state_received = False
+        self.control_method = ControlMethod.POS_CTRL
+
+        # Set timeout for error printing
+        self.print_timeout = rospy.Duration(1.0)
+
+        # Construct default position target message (used for position, velocity, and yaw/yawrate commands)
+        self.pos_target_msg.header.frame_id = "base_link"
+        self.pos_target_msg.coordinate_frame = 1 # binary: 0000 1101 1111 1111 => ignore everything
+        self.pos_target_msg.type_mask = 3583
+        self.pos_target_msg.position.x = float('NaN')
+        self.pos_target_msg.position.y = float('NaN')
+        self.pos_target_msg.position.z = float('NaN')
+        self.pos_target_msg.velocity.x = float('NaN')
+        self.pos_target_msg.velocity.y = float('NaN')
+        self.pos_target_msg.velocity.z = float('NaN')
+        self.pos_target_msg.acceleration_or_force.x = float('NaN')
+        self.pos_target_msg.acceleration_or_force.y = float('NaN')
+        self.pos_target_msg.acceleration_or_force.z = float('NaN')
+        self.pos_target_msg.yaw = float('NaN')
+        self.pos_target_msg.yaw_rate = float('NaN')
+
+        # Construct default attitude target message (used for attitude and thrust commands)
+        self.att_target_msg.header.frame_id = "base_link"
+        self.att_target_msg.type_mask = 255 # binary: 1111 1111 => ignore everything
+        self.att_target_msg.orientation.x = float('NaN')
+        self.att_target_msg.orientation.y = float('NaN')
+        self.att_target_msg.orientation.z = float('NaN')
+        self.att_target_msg.orientation.w = float('NaN')
+        self.att_target_msg.body_rate.x = float('NaN')
+        self.att_target_msg.body_rate.y = float('NaN')
+        self.att_target_msg.body_rate.z = float('NaN')
+        self.att_target_msg.thrust = float('NaN')
+
+        # Define control loop timer at specified frequency: should be higher than 2Hz
+        self.loop_timer = rospy.Timer(rospy.Duration(1/self.loop_frequency), self.loop)
+        self.loop_timer.shutdown()
+        self.timer_running = False
+
+        return True
+
+
+    def _init_ros_interface(self) -> bool:
         # Enable debug printing at least for the first part of the algorithm
         self.enable_debug = True
 
         # Store ROS parameters
-        if not self.getRosParameters():
+        if not self._get_ros_parameters():
             #error message
             return False
         
@@ -52,9 +146,24 @@ class Controller:
             exit(1)
 
         # Ros subscribers and publishers
+        self.state_sub = rospy.Subscriber("/mavros/local_position/odom", Odometry, self.state_callback)
 
-        
-    def getRosParameters(self) -> bool:
+        self.pos_pub = rospy.Publisher("/mavros/setpoint_raw/local", PositionTarget, queue_size=10)
+        self.pos_yaw_pub = rospy.Publisher("/mavros/setpoint_raw/local", PositionTarget, queue_size=10)
+        self.pos_yawrate_pub = rospy.Publisher("/mavros/setpoint_raw/local", PositionTarget, queue_size=10)
+        self.vel_pub = rospy.Publisher("/mavros/setpoint_raw/local", PositionTarget, queue_size=10)
+        self.att_pub = rospy.Publisher("/mavros/setpoint_raw/attitude", AttitudeTarget, queue_size=10)
+        self.rpyrt_pub = rospy.Publisher("/mavros/setpoint_raw/roll_pitch_yawrate_thrust", RollPitchYawrateThrust, queue_size=10)
+
+        # ROS services and clients
+        self.enable_control_srv = rospy.Service("/px4_ext_cont_enable", Trigger, self.enable_control_callback)
+        self.disable_control_srv = rospy.Service("/px4_ext_cont_disable", Trigger, self.disable_control_callback)
+        self.mission_finished_clt = rospy.ServiceProxy("/px4_mission_finished_ext_cont", Trigger)        
+
+        return True
+
+
+    def _get_ros_parameters(self) -> bool:
         # Required parameters
         if rospy.has_param('goal_pos'):
             self.goal_pos = rospy.get_param('goal_pos')
@@ -71,5 +180,187 @@ class Controller:
         self.loop_frequency = rospy.get_param('loop_frequency', self.loop_frequency_default)
         self.dist_thres = rospy.get_param('dist_thres', self.dist_thres_default)
 
-    def reconfigureCallback(self, config: ControllerConfig, level: int) -> None:
-        pass
+
+    def loop(self) -> None:
+        # Check if goal reached
+        self.mission_finished_check()
+
+        # Compute and publish control commands
+        self.controller_execution()
+
+
+    def mission_finished_check(self) -> None:
+        
+        distance = np.linalg.norm(np.asarray(self.goal_pos - self.cur_pos))
+        if distance < self.dist_thres and self.timer_running:
+            self.mission_finished = True
+
+        if self.mission_finished:
+            if self.mission_finished_clt.call(self.mission_finished_srv):
+                rospy.loginfo('[CONTROLLER]: Mission finished! Transferred back control to PX4 control interface and got the following message back: ' + self.mission_finished_srv._response_class.message)
+                self.loop_timer.shutdown()
+                self.timer_running = False
+            else:
+                if rospy.Time.now() - self.last_time > self.print_timeout:
+                    rospy.logerr('[CONTROLLER]: Mission finished, but failed to transfer back control to PX4 control interface! Will try again every control loop execution until success')
+                    self.last_time = rospy.Time.now()
+
+
+    def controller_execution(self) -> None:
+        '''
+        Insert custom controller code here.
+        Possibly create different classes for different controller parts to keep the code modular.
+        For example, use multiple instances of a PID class to control thrust and x/y positions separately.
+
+        The code below is provided as an example to show the different ways of interfacing with MAVROS and PX4
+        '''
+
+        # A standard sine and cosine wave for velocity and attitude commands
+        cur_time = rospy.Time.now()
+        f = 0.25
+        t = rospy.Duration(cur_time - self.loop_start_time).to_sec()
+        sin_val = np.sin(2*np.pi*f*t)
+        cos_val = np.cos(2*np.pi*f*t)
+
+        # Calculate and publish control commands
+        # Example given for each control mode
+
+        if self.control_method == ControlMethod.POS_CTRL:
+            self.pos_target_msg.header.stamp = rospy.Time.now()
+            self.pos_target_msg.type_mask = 3576  # binary: 0000 1101 1111 1000 => ignore everything except position setpoints
+            self.pos_target_msg.position.x = 1
+            self.pos_target_msg.position.y = 1
+            self.pos_target_msg.position.z = 2
+
+            # Publish message
+            self.pos_pub.publish(self.pos_target_msg)
+        
+        elif self.control_method == ControlMethod.POS_YAW_CTRL:
+            # TODO edit PX4 controller code to allow this interface to work properly
+            self.pos_target_msg.header.stamp = rospy.Time.now()
+            self.pos_target_msg.type_mask = 2552  # binary: 0000 1001 1111 1000 => ignore everything except position and yaw setpoints
+            self.pos_target_msg.position.x = 1
+            self.pos_target_msg.position.y = 1
+            self.pos_target_msg.position.z = 2
+            self.pos_target_msg.yaw = np.pi
+
+            # Publish Message
+            self.pos_yaw_pub.publish(self.pos_target_msg)
+
+        elif self.control_method == ControlMethod.POS_YAWRATE_CTRL:
+            self.pos_target_msg.header.stamp = rospy.Time.now()
+            self.pos_target_msg.type_mask = 1528  # binary: 0000 0101 1111 1000 => ignore everything except position and yaw rate setpoints
+            self.pos_target_msg.position.x = 1
+            self.pos_target_msg.position.y = 1
+            self.pos_target_msg.position.z = 2
+            self.pos_target_msg.yaw_rate = 1
+
+            # Publish Message
+            self.pos_yawrate_pub.publish(self.pos_target_msg)
+
+        elif self.control_method == ControlMethod.VEL_CTRL:
+            self.pos_target_msg.header.stamp = rospy.Time.now()
+            self.pos_target_msg.type_mask = 3527  # binary: 0000 1101 1100 0111 => ignore everything except velocity setpoints
+            self.pos_target_msg.velocity.x = 0.5*cos_val
+            self.pos_target_msg.velocity.y = 0.5*sin_val
+            self.pos_target_msg.velocity.z = 0
+
+            # Publish Message
+            self.vel_pub.publish(self.pos_target_msg)
+
+        elif self.control_method == ControlMethod.ATT_CTRL:
+            # Define orientation in ZYX Euler angles (rad) and convert to quaternion
+
+            # TODO
+
+            pass
+
+        elif self.control_method == ControlMethod.RPYRT_CTRL:
+            # TODO
+            pass
+        
+
+
+
+  
+    def reconfigure_callback(self, config: ControllerConfig, level: int) -> None:
+        
+        if level == 1:
+            if self.first_reconfig_cb:
+                self.first_reconfig_cb = False
+                config.enable_debug = self.enable_debug
+            else:
+                self.enable_debug = config.enable_debug
+
+        if level == 2:
+
+            if config.control_select == 0:
+                #info message
+                self.control_method = ControlMethod.POS_CTRL
+
+            elif config.control_select == 1:
+                #info message
+                self.control_method = ControlMethod.POS_YAW_CTRL
+
+            elif config.control_select == 2:
+                #info message
+                self.control_method = ControlMethod.POS_YAW_CTRL
+
+            elif config.control_select == 3:
+                #info message
+                self.control_method = ControlMethod.POS_YAW_CTRL
+
+            elif config.control_select == 4:
+                #info message
+                self.control_method = ControlMethod.POS_YAW_CTRL
+
+            elif config.control_select == 5:
+                #info message
+                self.control_method = ControlMethod.POS_YAW_CTRL
+
+            else:
+                #warn message
+                self.control_method = ControlMethod.POS_CTRL
+            
+                
+
+
+    def enable_control_callback(self, req: Trigger._request_class, res: Trigger._response_class) -> bool:
+        
+        if not self.first_state_received:
+            # warn message
+            res.success = False
+            res.message = "Control loop can only be started if first state is received!"
+            return False
+        else:
+            # info message
+            self.mission_finished = False
+            self.loop_timer.start()
+            self.loop_start_time = rospy.Time.now()
+            self.last_time = self.loop_start_time
+            self.timer_running = True
+            res.success = True
+            res.message = "Enabled control loop"
+            return True
+
+
+    def disable_control_callback(self, req: Trigger._request_class, res: Trigger._response_class) -> bool:
+        
+        # info message
+        self.loop_timer.shutdown()
+        self.timer_running = False
+        res.success = True
+        res.message = "Disabled control loop"
+        return True
+
+
+    def state_callback(self, msg: Odometry) -> None:
+        if not self.first_state_received:
+            self.first_state_received = True
+
+        self.cur_odom_msg = msg
+        self.cur_pose_msg = self.cur_odom_msg.pose.pose
+
+        self.cur_pos[0] = self.cur_pose_msg.position.x
+        self.cur_pos[1] = self.cur_pose_msg.position.y
+        self.cur_pos[2] = self.cur_pose_msg.position.z
