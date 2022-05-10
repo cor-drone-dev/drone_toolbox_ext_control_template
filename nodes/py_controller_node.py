@@ -15,12 +15,13 @@ if __name__ == '__main__':
         server = Server(ControllerConfig, controllerObj.reconfigure_callback)
 
         if not controllerObj.initialize():
-            # error message
-            exit(1)
+            rospy.logerr('[CONTROLLER]: Controller initialization failed!')
+            # exit(1)
         else:
-            # info message
+            rospy.loginfo('[CONTROLLER]: Controller initialization successful')
             rospy.spin()
 
-    except rospy.exceptions:
-        # error message
-        pass
+    except:
+        # exception = rospy.exceptions
+        rospy.logerr('[CONTROLLER]: Error occurred: ')
+        exit(1)

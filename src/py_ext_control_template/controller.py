@@ -14,7 +14,9 @@ from geometry_msgs.msg import Pose
 
 from std_srvs.srv import Trigger
 
+from py_ext_control_template.custom_timer import CustomTimer
 
+from tf.transformations import quaternion_from_euler
 
 class ControlMethod(enum.Enum):
     POS_CTRL = 0
@@ -84,14 +86,13 @@ class Controller:
         
         # Initialize ROS interface
         if not self._init_ros_interface():
-            # error message
+            rospy.logerr('[CONTROLLER]: Failed to initialize ROS interface')
             return False
         
         # Initialize controller variables
         self.mission_finished = False
         self.first_state_received = False
-        self.control_method = ControlMethod.POS_CTRL
-
+        self.control_method = ControlMethod.RPYRT_CTRL
         # Set timeout for error printing
         self.print_timeout = rospy.Duration(1.0)
 
@@ -124,8 +125,8 @@ class Controller:
         self.att_target_msg.thrust = float('NaN')
 
         # Define control loop timer at specified frequency: should be higher than 2Hz
-        self.loop_timer = rospy.Timer(rospy.Duration(1/self.loop_frequency), self.loop)
-        self.loop_timer.shutdown()
+        self.loop_timer = CustomTimer(rospy.Duration(1/self.loop_frequency), self.loop)
+        self.loop_timer.pause()
         self.timer_running = False
 
         return True
@@ -137,12 +138,12 @@ class Controller:
 
         # Store ROS parameters
         if not self._get_ros_parameters():
-            #error message
+            rospy.logerr('[CONTROLLER]: Failed to obtain ROS parameters!')
             return False
         
         # Safety check: remove in case it is desired to test the controller in the lab
         if not self.is_sim:
-            # error message
+            rospy.logerr('[CONTROLLER]: Sim is set to false, but this is not allowed in this template controller!')
             exit(1)
 
         # Ros subscribers and publishers
@@ -168,6 +169,7 @@ class Controller:
         if rospy.has_param('goal_pos'):
             self.goal_pos = rospy.get_param('goal_pos')
         else:
+            rospy.logerr('goal_pos not found')
             return False
         
         if rospy.has_param('enable_debug'):
@@ -180,8 +182,10 @@ class Controller:
         self.loop_frequency = rospy.get_param('loop_frequency', self.loop_frequency_default)
         self.dist_thres = rospy.get_param('dist_thres', self.dist_thres_default)
 
+        return True
 
-    def loop(self) -> None:
+
+    def loop(self, timer_event: rospy.timer.TimerEvent) -> None:
         # Check if goal reached
         self.mission_finished_check()
 
@@ -191,14 +195,15 @@ class Controller:
 
     def mission_finished_check(self) -> None:
         
-        distance = np.linalg.norm(np.asarray(self.goal_pos - self.cur_pos))
+        distance = np.linalg.norm(np.asarray(self.goal_pos) - np.asarray(self.cur_pos).transpose())
         if distance < self.dist_thres and self.timer_running:
             self.mission_finished = True
 
         if self.mission_finished:
-            if self.mission_finished_clt.call(self.mission_finished_srv):
-                rospy.loginfo('[CONTROLLER]: Mission finished! Transferred back control to PX4 control interface and got the following message back: ' + self.mission_finished_srv._response_class.message)
-                self.loop_timer.shutdown()
+            res = self.mission_finished_clt(Trigger._request_class())
+            if res:
+                rospy.loginfo('[CONTROLLER]: Mission finished! Transferred back control to PX4 control interface and got the following message back: ' + res.message)
+                self.loop_timer.pause()
                 self.timer_running = False
             else:
                 if rospy.Time.now() - self.last_time > self.print_timeout:
@@ -218,7 +223,7 @@ class Controller:
         # A standard sine and cosine wave for velocity and attitude commands
         cur_time = rospy.Time.now()
         f = 0.25
-        t = rospy.Duration(cur_time - self.loop_start_time).to_sec()
+        t = cur_time.to_sec() - self.loop_start_time.to_sec()
         sin_val = np.sin(2*np.pi*f*t)
         cos_val = np.cos(2*np.pi*f*t)
 
@@ -270,20 +275,55 @@ class Controller:
 
         elif self.control_method == ControlMethod.ATT_CTRL:
             # Define orientation in ZYX Euler angles (rad) and convert to quaternion
+            roll = np.pi/10 * sin_val
+            pitch = np.pi/10 * cos_val
+            yaw = 0.0
+            # axes = sxyz or rzyx are equivalent
+            # q = quaternion_from_euler(roll, pitch, yaw, axes='sxyz')
+            q = quaternion_from_euler(yaw, pitch, roll, axes='rzyx')
 
-            # TODO
+            # Define thrust and convert to input desired by PX4: [0.1, 0.9] (assuming linear relation)
+            # Used for attitude commands
+            desired_thrust = 9.81
+            thrust = (desired_thrust - 9.81) / 22.629 + 0.674
 
-            pass
+            # Fill and send message
+            self.att_target_msg.header.stamp = rospy.Time.now()
+            self.att_target_msg.type_mask = 63  # binary: 0011 1111 => ignore everything except attitude and thrust setpoints
+            self.att_target_msg.orientation.x = q[0]
+            self.att_target_msg.orientation.y = q[1]
+            self.att_target_msg.orientation.z = q[2]
+            self.att_target_msg.orientation.w = q[3]
+            self.att_target_msg.thrust = thrust
 
+            # Publish Message
+            self.att_pub.publish(self.att_target_msg)
+            
         elif self.control_method == ControlMethod.RPYRT_CTRL:
-            # TODO
-            pass
-        
+            
+            # Define attitude (rad) and yaw rate (rad/s) commands
+            roll = np.pi/10 * sin_val
+            pitch = np.pi/10 * cos_val
+            yaw_rate = 1.0 
 
+            # Define thrust and convert to input desired by PX4: [0.1, 0.9] (assuming linear relation)
+            # Used for attitude commands
+            desired_thrust = 9.81
+            thrust = (desired_thrust - 9.81) / 22.629 + 0.674
 
+            # Fill and send message
+            self.rpyrt_msg.header.stamp = rospy.Time.now()
+            self.rpyrt_msg.roll = roll
+            self.rpyrt_msg.pitch = pitch
+            self.rpyrt_msg.yaw_rate = yaw_rate
+            self.rpyrt_msg.thrust.x = float('NaN')
+            self.rpyrt_msg.thrust.y = float('NaN')
+            self.rpyrt_msg.thrust.z = thrust
+
+            self.rpyrt_pub.publish(self.rpyrt_msg)
 
   
-    def reconfigure_callback(self, config: ControllerConfig, level: int) -> None:
+    def reconfigure_callback(self, config: ControllerConfig, level: int) -> ControllerConfig:
         
         if level == 1:
             if self.first_reconfig_cb:
@@ -295,63 +335,68 @@ class Controller:
         if level == 2:
 
             if config.control_select == 0:
-                #info message
+                rospy.loginfo('[CONTROLLER]: Switching to position control')
                 self.control_method = ControlMethod.POS_CTRL
 
             elif config.control_select == 1:
-                #info message
-                self.control_method = ControlMethod.POS_YAW_CTRL
+                rospy.loginfo('[CONTROLLER]: Combined position and yaw control currently not available! Switching to position control')
+                self.control_method = ControlMethod.POS_CTRL
 
             elif config.control_select == 2:
-                #info message
-                self.control_method = ControlMethod.POS_YAW_CTRL
+                rospy.loginfo('[CONTROLLER]: Switching to combined position and yaw rate control')
+                self.control_method = ControlMethod.POS_YAWRATE_CTRL
 
             elif config.control_select == 3:
-                #info message
-                self.control_method = ControlMethod.POS_YAW_CTRL
+                rospy.loginfo('[CONTROLLER]: Switching to velocity control')
+                self.control_method = ControlMethod.VEL_CTRL
 
             elif config.control_select == 4:
-                #info message
-                self.control_method = ControlMethod.POS_YAW_CTRL
+                rospy.loginfo('[CONTROLLER]: Switching to attitude control')
+                self.control_method = ControlMethod.ATT_CTRL
 
             elif config.control_select == 5:
-                #info message
-                self.control_method = ControlMethod.POS_YAW_CTRL
+                rospy.loginfo('[CONTROLLER]: Switching to roll, pitch, yaw rate and thrust control')
+                self.control_method = ControlMethod.RPYRT_CTRL
 
             else:
-                #warn message
+                rospy.logwarn('[CONTROLLER]: Invalid control method selected! Switching to position control')
                 self.control_method = ControlMethod.POS_CTRL
-            
-                
 
+        return config
+    
 
-    def enable_control_callback(self, req: Trigger._request_class, res: Trigger._response_class) -> bool:
+    def enable_control_callback(self, req: Trigger._request_class) -> Trigger._response_class:
         
+        res = Trigger._response_class()
+
         if not self.first_state_received:
-            # warn message
+            rospy.logwarn('[CONTROLLER]: enableControlCallback called: control loop can only be started if first state is received!"')
             res.success = False
             res.message = "Control loop can only be started if first state is received!"
-            return False
         else:
-            # info message
+            rospy.loginfo('[CONTROLLER]: enableControlCallback called: starting control loop')
             self.mission_finished = False
-            self.loop_timer.start()
+            self.loop_timer.restart()
             self.loop_start_time = rospy.Time.now()
             self.last_time = self.loop_start_time
             self.timer_running = True
             res.success = True
             res.message = "Enabled control loop"
-            return True
-
-
-    def disable_control_callback(self, req: Trigger._request_class, res: Trigger._response_class) -> bool:
         
-        # info message
-        self.loop_timer.shutdown()
+        return res
+
+
+    def disable_control_callback(self, req: Trigger._request_class) -> Trigger._response_class:
+        
+        res = Trigger._response_class()
+
+        rospy.loginfo('[CONTROLLER]: disableControlCallback called: stopping control loop')
+        self.loop_timer.pause()
         self.timer_running = False
         res.success = True
         res.message = "Disabled control loop"
-        return True
+
+        return res
 
 
     def state_callback(self, msg: Odometry) -> None:
