@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+
+<launch>
+    <!-- Experiment settings -->
+    <arg name="sim" default="true"/>
+    <arg name="controller_param_file" default="$(find drone_toolbox_ext_control_template)/config/controller.yaml"/>
+
+    <!-- This launch file should only be used in simulations -->
+    <group if="$(arg sim)">
+        <!-- Launch controller node -->
+        <param name="is_sim" value="$(arg sim)"/>
+        <rosparam command="load" file="$(arg controller_param_file)"/>
+        <node pkg="drone_toolbox_ext_control_template" type="py_controller_node.py" name="controller" required="true" output="screen" />
+    </group>
+    <group unless="$(arg sim)">
+        <arg name="msg_warn" default="Setting sim to false is not supported for controller.launch! This is a template controller giving example commands that can potentially be dangerous in a real-world scenario. Use this template controller package as a basis to create your own controller. Subsequently, you can sim to be set to true if the controller is tested in simulation."/>
+        <node name="pub_warn" pkg="rostopic" type="rostopic" args="pub /msg_warn std_msgs/String '$(arg msg_warn)'" output="screen"/>
+        <node name="print_warn" pkg="rostopic" type="rostopic" args="echo /msg_warn" output="screen"/>
+    </group>
+</launch>

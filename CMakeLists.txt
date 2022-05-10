@@ -14,6 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
   tf2
 )
 
+catkin_python_setup()
+
 generate_dynamic_reconfigure_options(
   cfg/Controller.cfg
 )
@@ -27,6 +29,11 @@ catkin_package(
 include_directories(include
   include/${PROJECT_NAME}
   ${catkin_INCLUDE_DIRS}
+)
+
+catkin_install_python(PROGRAMS
+  nodes/py_controller_node.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
 add_library(controller src/controller.cpp)
