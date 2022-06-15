@@ -80,7 +80,7 @@ void Controller::missionFinishedCheck()
     }
 }
 ```
-*Note: determining whether the mission finished is finished or not is done in this template based on a goal position (loaded as a ROS parameter from *config/controller.yaml*). However, one can implement this using an arbitrary condition that does not necessarily depend on a goal position.*
+>Note: determining whether the mission finished is finished or not is done in this template based on a goal position (loaded as a ROS parameter from *config/controller.yaml*). However, one can implement this using an arbitrary condition that does not necessarily depend on a goal position.
 
 
 
@@ -122,7 +122,7 @@ The [mavros_msgs/AttitudeTarget](https://docs.ros.org/en/noetic/api/mavros_msgs/
 
 The [mav_msgs/RollPitchYawrateThrust](https://docs.ros.org/en/indigo/api/mav_msgs/html/msg/RollPitchYawrateThrust.html) message is used for roll, pitch, yaw rate and thrust commands. After being published on the `/mavros/setpoint_raw/roll_pitch_yawrate_thrust` topic, this message is converted by MAVROS into a MAVLink message [here](https://github.com/cor-drone-dev/mavros/blob/RPYrT_support/mavros/src/plugins/setpoint_raw.cpp#L282). The rest of the communication chain is the same as for the attitude target.
 
-*Note: in this template, switching between the different commands is possible using ROS dynamic reconfiguration (see *cfg/controller.cfg* for the definition of all reconfigurable parameters. They are processed in the `reconfigureCallback` function inside *src/controller.cpp*).*
+>Note: in this template, switching between the different commands is possible using ROS dynamic reconfiguration (see *cfg/controller.cfg* for the definition of all reconfigurable parameters. They are processed in the `reconfigureCallback` function inside *src/controller.cpp*).
 
 *Note 2: to complete a full experiment (i.e., from taking off to landing), please select a variant of the position control options, since they are able to reach the goal position. The other control options are meant to show how to use these commands rather than moving to a goal location.*
 
@@ -165,7 +165,7 @@ and publish:
 pos_yaw_pub_.publish(pos_target_msg_);
 ```
 
-*Note: this type of control is currently not supported, since the yaw rate setpoint of the attitude controller gets overwritten by the yaw rate command to allow PX4 to execute RPYrT commands (see below).*
+>Note: this type of control is currently not supported, since the yaw rate setpoint of the attitude controller gets overwritten by the yaw rate command to allow PX4 to execute RPYrT commands (see below).
 
 
 ### Position and yaw rate control
@@ -237,7 +237,7 @@ and publish:
 ```
 att_pub_.publish(att_target_msg_);
 ```
-*Note: the thrust value provided to PX4 should be given as a value between 0 and 1 (see [this link](https://docs.px4.io/master/en/concept/mixing.html#multirotor-mixer) and [this code line](https://github.com/cor-drone-dev/mavros/blob/5c38353bea11af5139d81dc71d5d27df77b4df4f/mavros/src/plugins/setpoint_raw.cpp#L259)), because the real thrust the drone experiences depends on the specific hardware present on the platform (ESCs and motors). Therefore, before controlling the drone with a thrust value, first make sure to derive the relation between real thrust and commanded thrust. This relation depends on the battery voltage. This constraint on the commanded thrust holds for all messages containing a thrust value, including the RPYrT control message.*
+>Note: the thrust value provided to PX4 should be given as a value between 0 and 1 (see [this link](https://docs.px4.io/master/en/concept/mixing.html#multirotor-mixer) and [this code line](https://github.com/cor-drone-dev/mavros/blob/5c38353bea11af5139d81dc71d5d27df77b4df4f/mavros/src/plugins/setpoint_raw.cpp#L259)), because the real thrust the drone experiences depends on the specific hardware present on the platform (ESCs and motors). Therefore, before controlling the drone with a thrust value, first make sure to derive the relation between real thrust and commanded thrust. This relation depends on the battery voltage. This constraint on the commanded thrust holds for all messages containing a thrust value, including the RPYrT control message.
 
 
 ### RPYrT control
