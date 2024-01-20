@@ -19,7 +19,13 @@
   <depend>roscpp</depend>
   <depend>std_srvs</depend>
   <depend>tf2</depend>
+  <exec_depend>drone_description</exec_depend>
+  <exec_depend>drone_gazebo</exec_depend>
   <exec_depend>mavros</exec_depend>
+  <exec_depend>px4_tools</exec_depend>
+  <exec_depend>rosbag</exec_depend>
+  <exec_depend>rqt_reconfigure</exec_depend>
+  <exec_depend>rviz</exec_depend>
 
   <export>
   </export>

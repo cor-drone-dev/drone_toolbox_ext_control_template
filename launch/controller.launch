@@ -2,20 +2,63 @@
 
 <launch>
     <!-- Experiment settings -->
-    <arg name="sim" default="true"/>
+    <arg name="sim" default="false"/>
+    <arg name="gazebo_gui" default="false"/>
+    <arg name="drone_name" default="hovergames"/>
+    <arg name="run_px4_control_interface" default="true"/>
+    <arg name="px4_control_interface_param_file" default="$(find px4_tools)/config/px4_control_interface_default.yaml"/>
+
+    <!-- Controller settings -->
     <arg name="controller_param_file" default="$(find drone_toolbox_ext_control_template)/config/controller.yaml"/>
 
-    <!-- This launch file should only be used in simulations -->
+    <!-- Load robot_description and publish the states on tf -->
+    <include file="$(find drone_description)/launch/drone_description.launch">
+        <arg name="drone_name" value="$(arg drone_name)"/>
+    </include>
+
+    <!-- Launch Gazebo if sim is set to true -->
     <group if="$(arg sim)">
-        <!-- Launch controller node -->
-        <node pkg="drone_toolbox_ext_control_template" type="controller_node" name="controller" required="true" output="screen">
-            <param name="is_sim" value="$(arg sim)"/>
-            <rosparam command="load" file="$(arg controller_param_file)"/>
-        </node>
+        <include file="$(find drone_gazebo)/launch/gazebo_world.launch">
+            <arg name="gui" value="$(arg gazebo_gui)"/>
+        </include>
     </group>
+
+    <!-- Launch PX4 control interface, MAVROS, PX4 SITL and spawn vehicle -->
+    <include file="$(find px4_tools)/launch/px4_tools.launch">
+        <arg name="sim" value="$(arg sim)"/>
+        <arg name="drone_name" value="$(arg drone_name)"/>
+        <arg name="run_px4_control_interface" value="$(arg run_px4_control_interface)"/>
+        <arg name="px4_control_interface_param_file" value="$(arg px4_control_interface_param_file)"/>
+    </include>
+
+    <!-- Launch controller -->
+    <node name="controller" pkg="drone_toolbox_ext_control_template" type="controller_node" required="true" output="screen">
+        <param name="is_sim" value="$(arg sim)"/>
+        <rosparam command="load" file="$(arg controller_param_file)"/>
+    </node>
+
+    <!-- Print warning message for lab experiments -->
     <group unless="$(arg sim)">
-        <arg name="msg_warn" default="Setting sim to false is not supported for controller.launch! This is a template controller giving example commands that can potentially be dangerous in a real-world scenario. Use this template controller package as a basis to create your own controller. Subsequently, you can sim to be set to true if the controller is tested in simulation."/>
+        <arg name="msg_warn" default="Only use the position controller mode in lab experiments! This is a template controller giving example commands that can potentially be dangerous in a real-world scenario. Use this template controller package as a basis to create your own controller."/>
         <node name="pub_warn" pkg="rostopic" type="rostopic" args="pub /msg_warn std_msgs/String '$(arg msg_warn)'" output="screen"/>
         <node name="print_warn" pkg="rostopic" type="rostopic" args="echo /msg_warn" output="screen"/>
     </group>
+
+    <!-- Launch ROS dynamic reconfigure -->
+    <group if="$(arg sim)">
+        <node name="rqt_reconfig" pkg="rqt_reconfigure" type="rqt_reconfigure"/>
+    </group>
+
+    <!-- Launch pre-configured RViz -->
+    <group if="$(arg sim)">
+        <node name="rviz" pkg="rviz" type="rviz" args="-d $(find drone_toolbox_ext_control_template)/rviz/template_controller.rviz"/>
+    </group>
+
+    <!-- Record a ROS bag -->
+    <node pkg="rosbag" name="record" type="record" args="-o template_controller
+    /mavros/setpoint_raw/local
+    /mavros/setpoint_raw/attitude
+    /mavros/setpoint_raw/roll_pitch_yawrate_thrust
+    /mavros/local_position/odom"
+    />
 </launch>
