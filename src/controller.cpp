@@ -66,8 +66,7 @@ bool Controller::initRosInterface()
 
     // Safety check: remove in case it is desired to test the controller in the lab
     if (!is_sim_) {
-        CONTROLLER_ERROR("Sim is set to false, but this is not allowed in this template controller!");
-        exit(1);
+        CONTROLLER_WARN("Sim is set to false, use at your own risk!");
     }
 
     // ROS subscribers and publishers

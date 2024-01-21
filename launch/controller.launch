@@ -4,6 +4,7 @@
     <!-- Experiment settings -->
     <arg name="sim" default="false"/>
     <arg name="gazebo_gui" default="false"/>
+    <arg name="record" default="true"/>
     <arg name="drone_name" default="hovergames"/>
     <arg name="run_px4_control_interface" default="true"/>
     <arg name="px4_control_interface_param_file" default="$(find px4_tools)/config/px4_control_interface_default.yaml"/>
@@ -39,7 +40,7 @@
 
     <!-- Print warning message for lab experiments -->
     <group unless="$(arg sim)">
-        <arg name="msg_warn" default="Only use the position controller mode in lab experiments! This is a template controller giving example commands that can potentially be dangerous in a real-world scenario. Use this template controller package as a basis to create your own controller."/>
+        <arg name="msg_warn" default="Usage for lab experiments is at your own risk! This is a template controller giving example commands that can potentially be dangerous in a real-world scenario. Use this template controller package as a basis to create your own controller."/>
         <node name="pub_warn" pkg="rostopic" type="rostopic" args="pub /msg_warn std_msgs/String '$(arg msg_warn)'" output="screen"/>
         <node name="print_warn" pkg="rostopic" type="rostopic" args="echo /msg_warn" output="screen"/>
     </group>
@@ -55,10 +56,12 @@
     </group>
 
     <!-- Record a ROS bag -->
-    <node pkg="rosbag" name="record" type="record" args="-o template_controller
-    /mavros/setpoint_raw/local
-    /mavros/setpoint_raw/attitude
-    /mavros/setpoint_raw/roll_pitch_yawrate_thrust
-    /mavros/local_position/odom"
-    />
+    <group if="$(arg record)">
+        <node pkg="rosbag" name="record" type="record" args="-o template_controller
+        /mavros/setpoint_raw/local
+        /mavros/setpoint_raw/attitude
+        /mavros/setpoint_raw/roll_pitch_yawrate_thrust
+        /mavros/local_position/odom"
+        />
+    </group>
 </launch>
