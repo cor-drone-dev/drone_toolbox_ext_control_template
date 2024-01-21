@@ -2,9 +2,12 @@
 <?xml version="1.0"?>
 
 <launch>
+    <!-- Experiment settings -->
+    <arg name="rviz_file" default="$(find drone_toolbox_ext_control_template)/rviz/template_controller.rviz"/>
+
     <!-- Launch ROS dynamic reconfigure -->
     <node name="rqt_reconfig" pkg="rqt_reconfigure" type="rqt_reconfigure"/>
 
     <!-- Launch pre-configured RViz -->
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find drone_toolbox_ext_control_template)/rviz/template_controller.rviz"/>
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rviz_file)"/>
 </launch>
