@@ -12,6 +12,16 @@
     <!-- Controller settings -->
     <arg name="controller_param_file" default="$(find drone_toolbox_ext_control_template)/config/controller.yaml"/>
 
+    <!-- Vicon settings -->
+    <arg name="publish_tf" default="true"/>
+    <arg name="reset_z_axis" default="true"/>
+    <arg name="only_use_object_specific" default="true"/>
+    <arg name="object_names" default="[drone1]"/>
+    <arg name="object_msg_types" default="[geometry_msgs/PoseStamped]"/>
+    <arg name="object_frame_ids" default="[map]"/>
+    <arg name="object_publish_topics" default="[/mavros/vision_pose/pose]"/>
+    <arg name="object_frequency_divider" default="[1]"/>
+
     <!-- Load robot_description and publish the states on tf -->
     <include file="$(find drone_description)/launch/drone_description.launch">
         <arg name="drone_name" value="$(arg drone_name)"/>
@@ -43,6 +53,20 @@
         <arg name="msg_warn" default="Usage for lab experiments is at your own risk! This is a template controller giving example commands that can potentially be dangerous in a real-world scenario. Use this template controller package as a basis to create your own controller."/>
         <node name="pub_warn" pkg="rostopic" type="rostopic" args="pub /msg_warn std_msgs/String '$(arg msg_warn)'" output="screen"/>
         <node name="print_warn" pkg="rostopic" type="rostopic" args="echo /msg_warn" output="screen"/>
+    </group>
+
+    <!-- Launch vicon bridge if sim is set to false -->
+    <group unless="$(arg sim)">
+        <include file="$(find vicon_bridge)/launch/vicon.launch">
+            <arg name="publish_tf" value="$(arg publish_tf)"/>
+            <arg name="reset_z_axis" value="$(arg reset_z_axis)"/>
+            <arg name="only_use_object_specific" value="$(arg only_use_object_specific)"/>
+            <arg name="object_names" value="$(arg object_names)"/>
+            <arg name="object_msg_types" value="$(arg object_msg_types)"/>
+            <arg name="object_frame_ids" value="$(arg object_frame_ids)"/>
+            <arg name="object_publish_topics" value="$(arg object_publish_topics)"/>
+            <arg name="object_frequency_divider" value="$(arg object_frequency_divider)"/>
+        </include>
     </group>
 
     <!-- Launch ROS dynamic reconfigure -->

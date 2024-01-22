@@ -26,6 +26,7 @@
   <exec_depend>rosbag</exec_depend>
   <exec_depend>rqt_reconfigure</exec_depend>
   <exec_depend>rviz</exec_depend>
+  <exec_depend>vicon_bridge</exec_depend>
 
   <export>
   </export>
