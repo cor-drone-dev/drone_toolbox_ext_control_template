@@ -1,4 +1,4 @@
-#include "controller.h"
+#include "drone_toolbox_ext_control_template/controller.h"
 
 int main(int argc, char **argv)
 {

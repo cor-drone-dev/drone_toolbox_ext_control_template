@@ -36,6 +36,14 @@ class Controller
 
     // Dynamic reconfiguration
     void reconfigureCallback(drone_toolbox_ext_control_template::ControllerConfig& config, uint32_t level);
+    virtual void controllerExecution(); // should be public so that it can be overriden by derived class
+    virtual bool enableControlCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res); // allow override so that planner can be signalled when control loop starts
+
+
+    ros::Publisher pos_pub_, pos_yaw_pub_, pos_yawrate_pub_, vel_pub_, att_pub_, rpyrt_pub_;
+    mavros_msgs::PositionTarget pos_target_msg_;
+
+
 
   private:
     // Init functions
@@ -45,10 +53,10 @@ class Controller
     // Loop functions
     void loop(const ros::TimerEvent &event);
     void missionFinishedCheck();
-    void controllerExecution();
+    
 
     // Callback functions
-    bool enableControlCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+    
     bool disableControlCallback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
     void stateCallback(const nav_msgs::Odometry::ConstPtr& msg);
 
@@ -83,7 +91,6 @@ class Controller
 
     // ROS subscribers and publishers
     ros::Subscriber state_sub_;
-    ros::Publisher pos_pub_, pos_yaw_pub_, pos_yawrate_pub_, vel_pub_, att_pub_, rpyrt_pub_;
 
     // ROS service servers and clients
     ros::ServiceServer enable_control_server_, disable_control_server_;
@@ -91,7 +98,6 @@ class Controller
 
     // ROS messages
     // Send
-    mavros_msgs::PositionTarget pos_target_msg_;
     mavros_msgs::AttitudeTarget att_target_msg_;
     mav_msgs::RollPitchYawrateThrust rpyrt_msg_;
     // Receive

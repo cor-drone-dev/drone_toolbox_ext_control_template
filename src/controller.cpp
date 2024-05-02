@@ -12,7 +12,7 @@ bool Controller::initialize()
     // Initialize controller settings
     mission_finished_ = false;
     first_state_received_ = false;
-    control_method_ = POS_CTRL;
+    control_method_ = POS_YAW_CTRL;
 
     // Set timeout for error printing
     print_timeout_ = ros::Duration(1.0);
