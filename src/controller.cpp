@@ -12,7 +12,7 @@ bool Controller::initialize()
     // Initialize controller settings
     mission_finished_ = false;
     first_state_received_ = false;
-    control_method_ = POS_CTRL;
+    control_method_ = ATT_CTRL;
 
     // Set timeout for error printing
     print_timeout_ = ros::Duration(1.0);
@@ -20,7 +20,7 @@ bool Controller::initialize()
     // Construct default position target message (used for position, velocity and yaw/yaw rate commands)
     pos_target_msg_.header.frame_id = "base_link";
     pos_target_msg_.coordinate_frame = 1; //binary: 0000 1101 1111 1111 => ignore everything
-    pos_target_msg_.type_mask = 3583;
+    pos_target_msg_.type_mask = 0;
     pos_target_msg_.position.x = NAN;
     pos_target_msg_.position.y = NAN;
     pos_target_msg_.position.z = NAN;
@@ -66,7 +66,8 @@ bool Controller::initRosInterface()
 
     // Safety check: remove in case it is desired to test the controller in the lab
     if (!is_sim_) {
-        CONTROLLER_WARN("Sim is set to false, use at your own risk!");
+        CONTROLLER_ERROR("Sim is set to false, but this is not allowed in this template controller!");
+        exit(1);
     }
 
     // ROS subscribers and publishers
@@ -152,11 +153,12 @@ void Controller::controllerExecution()
     switch (control_method_) {
         case POS_CTRL:
             pos_target_msg_.header.stamp = ros::Time::now();
-            pos_target_msg_.type_mask = 3576; //binary: 0000 1101 1111 1000 => ignore everything except position setpoints
+            pos_target_msg_.type_mask = 0;
+;; //binary: 0000 1101 1111 1000 => ignore everything except position setpoints
             pos_target_msg_.position.x = 1;
             pos_target_msg_.position.y = 1;
             pos_target_msg_.position.z = 2;
-
+            pos_target_msg_
             pos_pub_.publish(pos_target_msg_);
             break;
 

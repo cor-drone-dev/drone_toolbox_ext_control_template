@@ -1,11 +1,11 @@
 # Controller frequency (Hz)
-loop_frequency: 20
+loop_frequency: 100
 
 # Goal position
-goal_pos: [0, 0, 1]
+goal_pos: [0, 0, 5000]
 
 # Distance threshold for reaching a desired position
-dist_thres: 0.5
+dist_thres: 0.2
 
 # Print debug information
 enable_debug: true

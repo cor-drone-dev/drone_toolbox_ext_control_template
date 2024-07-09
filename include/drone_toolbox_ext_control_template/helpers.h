@@ -16,6 +16,7 @@ using std::pow;
 using std::sqrt;
 using std::transform;
 
+
 // Logging pragmas
 #define CONTROLLER_INFO(msg) \
 	if (enable_debug_){ROS_INFO_STREAM("[CONTROLLER]: " << msg);}
@@ -50,5 +51,6 @@ double getEuclideanDistance3d(vector<double>& a, vector<double>& b)
     transform(a.begin(), a.end(), b.begin(), diff.begin(), minus<double>());
     return (double) sqrt(pow(diff[0],2) + pow(diff[1],2) + pow(diff[2],2));
 }
+
 
 #endif //CONTROLLER_HELPERS

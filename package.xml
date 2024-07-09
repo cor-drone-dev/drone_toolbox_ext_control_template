@@ -9,6 +9,8 @@
   <license>Apache License 2.0</license>
 
   <author>Dennis Benders</author>
+  <build_depend>message_generation</build_depend>
+  <exec_depend>message_runtime</exec_depend>
 
   <buildtool_depend>catkin</buildtool_depend>
   <depend>dynamic_reconfigure</depend>
@@ -19,6 +21,9 @@
   <depend>roscpp</depend>
   <depend>std_srvs</depend>
   <depend>tf2</depend>
+  <depend>aruco_msgs</depend>
+  <!--<depend>message_runtime</depend>-->
+  <depend>std_msgs</depend>
   <exec_depend>drone_description</exec_depend>
   <exec_depend>drone_gazebo</exec_depend>
   <exec_depend>mavros</exec_depend>
